@@ -1,0 +1,12 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=sqlite:////data/vydaje.db
+    volumes:
+      - vydaje-data:/data
+
+volumes:
+  vydaje-data:
