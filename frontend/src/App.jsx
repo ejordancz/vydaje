@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 
 const WHO_OPTIONS = [
   { value: 'Mira', label: 'Mira', icon: PersonIcon },
-  { value: 'Bohunka', label: 'Bohunka', icon: PersonIcon },
+  { value: 'Bohunka', label: 'Bohunka', icon: WomanIcon },
 ]
 const CURRENCY_OPTIONS = [
   { value: 'CZK', label: 'CZK', symbol: 'Kč', icon: CzkIcon },
@@ -21,6 +21,16 @@ function PersonIcon() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
       <circle cx="12" cy="7" r="4" />
+    </svg>
+  )
+}
+function WomanIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+      <path d="M8 9.5 Q5 14 5 21" />
+      <path d="M16 9.5 Q19 14 19 21" />
     </svg>
   )
 }
@@ -223,7 +233,17 @@ function getTypeIcon(rec) {
 
 const PREF_KEY = 'vydajePrefs'
 
-export default function App() {
+export default function App({ token, onUnauthorized }) {
+  const authFetch = useCallback(
+    (url, opts = {}) => {
+      const headers = { ...opts.headers, Authorization: `Bearer ${token}` }
+      return fetch(url, { ...opts, headers }).then((res) => {
+        if (res.status === 401) onUnauthorized()
+        return res
+      })
+    },
+    [token, onUnauthorized]
+  )
   const [records, setRecords] = useState([])
   const [rates, setRates] = useState({})
   const [loading, setLoading] = useState(true)
@@ -278,7 +298,7 @@ export default function App() {
 
   const loadRecords = useCallback(async () => {
     try {
-      const r = await fetch(`${API}/records`)
+      const r = await authFetch(`${API}/records`)
       if (!r.ok) throw new Error('Načtení se nezdařilo')
       const data = await apiJson(r)
       setRecords(data)
@@ -287,17 +307,17 @@ export default function App() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [authFetch])
 
   const loadRates = useCallback(async () => {
     try {
-      const r = await fetch(`${API}/rates`)
+      const r = await authFetch(`${API}/rates`)
       if (r.ok) {
         const data = await apiJson(r)
         setRates(data)
       }
     } catch (_) {}
-  }, [])
+  }, [authFetch])
 
   useEffect(() => {
     loadRecords()
@@ -357,7 +377,7 @@ export default function App() {
         const body = { who, amount: am, type, note }
         const dateIso = fromDatetimeLocal(dateTime)
         if (dateIso) body.date = dateIso
-        const r = await fetch(`${API}/records/${editingId}`, {
+        const r = await authFetch(`${API}/records/${editingId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
@@ -379,7 +399,7 @@ export default function App() {
         if (currency !== 'CZK' && currentRate != null) {
           body.rate = currentRate
         }
-        const r = await fetch(`${API}/records`, {
+        const r = await authFetch(`${API}/records`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
@@ -400,7 +420,7 @@ export default function App() {
 
   const handleDelete = async (id) => {
     try {
-      const r = await fetch(`${API}/records/${id}`, { method: 'DELETE' })
+      const r = await authFetch(`${API}/records/${id}`, { method: 'DELETE' })
       if (!r.ok) throw new Error('Smazání se nezdařilo')
       setRecords((prev) => prev.filter((rec) => rec.id !== id))
       if (editingId === id) cancelForm()
@@ -473,7 +493,7 @@ export default function App() {
         const rate = rates[paymentCurrency]
         if (rate != null) body.rate = rate
       }
-      const r = await fetch(`${API}/records`, {
+      const r = await authFetch(`${API}/records`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -913,7 +933,10 @@ export default function App() {
                       <td>{formatDate(rec.date)}</td>
                       <td>
                         <div className={`who-icon who-${rec.who === 'Mira' ? 'mira' : 'bohunka'}`} title={rec.who}>
-                          <PersonIcon />
+                          {(() => {
+                            const WhoIcon = WHO_OPTIONS.find((o) => o.value === rec.who)?.icon || PersonIcon
+                            return <WhoIcon />
+                          })()}
                         </div>
                       </td>
                       <td>
@@ -958,6 +981,11 @@ export default function App() {
           )}
         </div>
       )}
+      <footer className="app-footer">
+        <button type="button" className="footer-logout" onClick={onUnauthorized}>
+          Odhlásit
+        </button>
+      </footer>
     </div>
   )
 }

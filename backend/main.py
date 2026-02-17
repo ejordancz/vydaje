@@ -1,5 +1,9 @@
 import os
 from pathlib import Path
+
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -9,8 +13,9 @@ from decimal import Decimal
 
 from database import get_db, init_db
 from models import Record
-from schemas import RecordCreate, RecordUpdate, RecordResponse
+from schemas import RecordCreate, RecordUpdate, RecordResponse, LoginRequest
 from rates import fetch_rates, get_rate_for_currency
+from auth import verify_password, create_access_token, verify_token
 
 app = FastAPI(title="Výdaje a příjmy")
 app.add_middleware(
@@ -30,14 +35,22 @@ def startup():
     init_db()
 
 
+@app.post("/api/auth/login")
+def login(data: LoginRequest):
+    """Přihlášení jen heslem. Heslo je v .env jako APP_PASSWORD."""
+    if not verify_password(data.password):
+        raise HTTPException(status_code=401, detail="Nesprávné heslo")
+    return {"token": create_access_token()}
+
+
 @app.get("/api/records", response_model=list[RecordResponse])
-def list_records(db: Session = Depends(get_db)):
+def list_records(db: Session = Depends(get_db), _: str = Depends(verify_token)):
     records = db.query(Record).order_by(Record.date.desc()).all()
     return [RecordResponse.model_validate(r) for r in records]
 
 
 @app.post("/api/records", response_model=RecordResponse)
-def create_record(data: RecordCreate, db: Session = Depends(get_db)):
+def create_record(data: RecordCreate, db: Session = Depends(get_db), _: str = Depends(verify_token)):
     rate = data.rate
     if data.currency != "CZK" and (rate is None or rate == 0):
         rate = get_rate_for_currency(data.currency)
@@ -64,7 +77,7 @@ def create_record(data: RecordCreate, db: Session = Depends(get_db)):
 
 
 @app.put("/api/records/{record_id}", response_model=RecordResponse)
-def update_record(record_id: int, data: RecordUpdate, db: Session = Depends(get_db)):
+def update_record(record_id: int, data: RecordUpdate, db: Session = Depends(get_db), _: str = Depends(verify_token)):
     record = db.get(Record, record_id)
     if not record:
         raise HTTPException(status_code=404, detail="Záznam nenalezen")
@@ -80,7 +93,7 @@ def update_record(record_id: int, data: RecordUpdate, db: Session = Depends(get_
 
 
 @app.delete("/api/records/{record_id}")
-def delete_record(record_id: int, db: Session = Depends(get_db)):
+def delete_record(record_id: int, db: Session = Depends(get_db), _: str = Depends(verify_token)):
     record = db.get(Record, record_id)
     if not record:
         raise HTTPException(status_code=404, detail="Záznam nenalezen")
@@ -90,7 +103,7 @@ def delete_record(record_id: int, db: Session = Depends(get_db)):
 
 
 @app.get("/api/rates")
-def list_rates():
+def list_rates(_: str = Depends(verify_token)):
     """Vrátí kurzy z partnersbanka.cz (pro výběr měny a zobrazení kurzu)."""
     return fetch_rates()
 

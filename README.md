@@ -8,14 +8,23 @@ Aplikace pro ukládání výdajů a příjmů (Mira, Bohunka). Běží v jednom 
 
 ## Spuštění v Dockeru
 
+1. Vytvořte soubor `.env` (např. zkopírujte `.env.example`) a nastavte heslo pro přihlášení:
+
+   ```
+   APP_PASSWORD=vas_bezpecne_heslo
+   ```
+
+2. Spusťte:
+
 ```bash
-docker build -t vydaje .
-docker run -p 8000:8000 vydaje
+docker compose up --build
 ```
 
-Aplikace: http://localhost:8000
+Aplikace: http://localhost:8000 — nejdřív se přihlaste heslem z `.env`.
 
 ## Lokální vývoj
+
+V adresáři projektu vytvořte `.env` s `APP_PASSWORD=...`.
 
 **Backend:**
 
@@ -42,6 +51,12 @@ Frontend: http://localhost:5173 (proxy na API na portu 8000)
 - **Záznam:** datum (automaticky), kdo (Mira / Bohunka), částka, měna (CZK nebo kurzy z partnersbanka.cz), typ (jídlo, doprava, ubytování, ostatní).
 - U ne-CZK měn se kurz stahuje z https://www.partnersbanka.cz/kurzy.
 - Přehledná tabulka všech záznamů s možností smazat.
+
+## Zabezpečení
+
+- Přihlášení je jen heslem (bez uživatelského jména). Heslo se nastavuje v `.env` jako `APP_PASSWORD`.
+- API je chráněné JWT tokenem: po přihlášení se token posílá v hlavičce `Authorization: Bearer <token>`.
+- Pro provoz na internetu doporučujeme běh za HTTPS (reverse proxy s TLS, např. Caddy nebo nginx s Let's Encrypt).
 
 ## Databáze
 
