@@ -319,6 +319,11 @@ body {
   font-weight: 500;
 }
 
+/* Kontejner pro datetime-local – overflow: visible aby se nativní picker neodřízl */
+.form-group-datetime {
+  overflow: visible;
+}
+
 /* Tlačítkové skupiny (Kdo, Měna, Typ) */
 .btn-group {
   display: flex;

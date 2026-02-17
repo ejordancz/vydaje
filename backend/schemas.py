@@ -26,6 +26,7 @@ class RecordUpdate(BaseModel):
     amount: Decimal
     type: str
     date: Optional[datetime] = None
+    payee: Optional[str] = None
     note: Optional[str] = None
 
 

@@ -199,6 +199,7 @@ function formatDayLabel(iso) {
 function toDatetimeLocal(iso) {
   if (!iso) return ''
   const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
@@ -263,7 +264,9 @@ export default function App({ token, onUnauthorized }) {
   const [paymentTo, setPaymentTo] = useState('Bohunka')
   const [paymentAmount, setPaymentAmount] = useState('')
   const [paymentCurrency, setPaymentCurrency] = useState('CZK')
+  const [paymentDateTime, setPaymentDateTime] = useState('')
   const [paymentSubmitting, setPaymentSubmitting] = useState(false)
+  const [editingPaymentId, setEditingPaymentId] = useState(null)
   const [detailRecord, setDetailRecord] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
@@ -419,14 +422,14 @@ export default function App({ token, onUnauthorized }) {
   }
 
   const handleDelete = async (id) => {
-    try {
-      const r = await authFetch(`${API}/records/${id}`, { method: 'DELETE' })
-      if (!r.ok) throw new Error('Smazání se nezdařilo')
-      setRecords((prev) => prev.filter((rec) => rec.id !== id))
-      if (editingId === id) cancelForm()
-    } catch (e) {
-      setError(e.message)
+    const numId = Number(id)
+    const r = await authFetch(`${API}/records/${numId}`, { method: 'DELETE' })
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}))
+      throw new Error(err.detail || 'Smazání se nezdařilo')
     }
+    setRecords((prev) => prev.filter((rec) => Number(rec.id) !== numId))
+    if (editingId === numId) cancelForm()
   }
 
   const openDetail = (rec) => {
@@ -441,28 +444,50 @@ export default function App({ token, onUnauthorized }) {
   }
 
   const handleDetailEdit = () => {
-    if (!detailRecord || detailRecord.payee) return
-    startEdit(detailRecord)
-    setDetailRecord(null)
+    if (!detailRecord) return
+    if (detailRecord.payee) {
+      startEditPayment(detailRecord)
+    } else {
+      startEdit(detailRecord)
+      setDetailRecord(null)
+    }
   }
 
-  const handleDetailDelete = () => {
+  const handleDetailDelete = async () => {
     if (!detailRecord) return
     if (!confirmDelete) {
       setConfirmDelete(true)
       return
     }
-    handleDelete(detailRecord.id)
-    setDetailRecord(null)
-    setConfirmDelete(false)
+    try {
+      await handleDelete(detailRecord.id)
+      setDetailRecord(null)
+      setConfirmDelete(false)
+    } catch (e) {
+      setError(e.message)
+    }
   }
 
   const openPaymentForm = () => {
-    // ponecháme poslední zvolené hodnoty (případně načtené z localStorage)
+    setEditingPaymentId(null)
     setPaymentTo(paymentWho === 'Mira' ? 'Bohunka' : 'Mira')
     setPaymentAmount('')
     setPaymentCurrency('CZK')
+    setPaymentDateTime(toDatetimeLocal(new Date().toISOString()))
     setShowPaymentForm(true)
+    setError(null)
+  }
+
+  const startEditPayment = (rec) => {
+    setEditingPaymentId(rec.id)
+    setPaymentWho(rec.who)
+    setPaymentTo(rec.payee || (rec.who === 'Mira' ? 'Bohunka' : 'Mira'))
+    setPaymentAmount(String(rec.amount))
+    setPaymentCurrency(rec.currency || 'CZK')
+    setPaymentDateTime(toDatetimeLocal(rec.date))
+    setNote(rec.note || '')
+    setShowPaymentForm(true)
+    setDetailRecord(null)
     setError(null)
   }
 
@@ -480,30 +505,55 @@ export default function App({ token, onUnauthorized }) {
     }
     setPaymentSubmitting(true)
     try {
-      const body = {
-        who: paymentWho,
-        amount: am,
-        currency: paymentCurrency,
-        type: 'splátka',
-        payee: paymentTo,
-        date: new Date().toISOString(),
-        note,
+      const dateIso = fromDatetimeLocal(paymentDateTime) || new Date().toISOString()
+      if (editingPaymentId) {
+        const body = {
+          who: paymentWho,
+          amount: am,
+          type: 'splátka',
+          payee: paymentTo,
+          date: dateIso,
+          note,
+        }
+        const r = await authFetch(`${API}/records/${editingPaymentId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+        const data = await apiJson(r)
+        if (!r.ok) throw new Error(data.detail || 'Uložení se nezdařilo')
+        setRecords((prev) => prev.map((rec) => (rec.id === editingPaymentId ? data : rec)))
+        setShowPaymentForm(false)
+        setPaymentAmount('')
+        setPaymentDateTime('')
+        setEditingPaymentId(null)
+      } else {
+        const body = {
+          who: paymentWho,
+          amount: am,
+          currency: paymentCurrency,
+          type: 'splátka',
+          payee: paymentTo,
+          date: dateIso,
+          note,
+        }
+        if (paymentCurrency !== 'CZK') {
+          const rate = rates[paymentCurrency]
+          if (rate != null) body.rate = rate
+        }
+        const r = await authFetch(`${API}/records`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        })
+        const data = await apiJson(r)
+        if (!r.ok) throw new Error(data.detail || 'Uložení se nezdařilo')
+        setRecords((prev) => [data, ...prev])
+        savePrefs({ paymentWho, paymentCurrency })
+        setShowPaymentForm(false)
+        setPaymentAmount('')
+        setPaymentDateTime('')
       }
-      if (paymentCurrency !== 'CZK') {
-        const rate = rates[paymentCurrency]
-        if (rate != null) body.rate = rate
-      }
-      const r = await authFetch(`${API}/records`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      const data = await apiJson(r)
-      if (!r.ok) throw new Error(data.detail || 'Uložení se nezdařilo')
-      setRecords((prev) => [data, ...prev])
-      savePrefs({ paymentWho, paymentCurrency })
-      setShowPaymentForm(false)
-      setPaymentAmount('')
     } catch (e) {
       setError(e.message)
     } finally {
@@ -555,11 +605,6 @@ export default function App({ token, onUnauthorized }) {
     },
     {},
   )
-  // Nejnákladnější den (jen výdaje)
-  const mostExpensiveDay = recordsByDay.reduce(
-    (best, d) => (d.dayTotal > (best?.dayTotal || 0) ? d : best),
-    null,
-  )
 
   return (
     <div className="app">
@@ -588,9 +633,10 @@ export default function App({ token, onUnauthorized }) {
           <div className="modal-content form-card" onClick={(e) => e.stopPropagation()}>
             <form onSubmit={handleSubmit}>
               <div className="form-stack">
-              <div className="form-group">
-                <label>Datum a čas</label>
+              <div className="form-group form-group-datetime">
+                <label htmlFor="record-datetime">Datum a čas</label>
                 <input
+                  id="record-datetime"
                   type="datetime-local"
                   value={dateTime}
                   onChange={(e) => setDateTime(e.target.value)}
@@ -722,10 +768,20 @@ export default function App({ token, onUnauthorized }) {
       )}
 
       {showPaymentForm && (
-        <div className="modal-backdrop" onClick={() => { setShowPaymentForm(false); setError(null); }} aria-hidden="true">
+        <div className="modal-backdrop" onClick={() => { setShowPaymentForm(false); setError(null); setEditingPaymentId(null); }} aria-hidden="true">
           <div className="modal-content form-card" onClick={(e) => e.stopPropagation()}>
             <form onSubmit={handlePaymentSubmit}>
               <div className="form-stack">
+                <div className="form-group form-group-datetime">
+                  <label htmlFor="payment-datetime">Datum a čas</label>
+                  <input
+                    id="payment-datetime"
+                    type="datetime-local"
+                    value={paymentDateTime}
+                    onChange={(e) => setPaymentDateTime(e.target.value)}
+                    className="input-datetime"
+                  />
+                </div>
                 <div className="form-group">
                   <label>Kdo platí</label>
                   <div className="btn-group">
@@ -801,7 +857,7 @@ export default function App({ token, onUnauthorized }) {
                   <button
                     type="button"
                     className="btn btn-secondary"
-                    onClick={() => { setShowPaymentForm(false); setError(null); }}
+                    onClick={() => { setShowPaymentForm(false); setError(null); setEditingPaymentId(null); }}
                   >
                     Zrušit
                   </button>
@@ -972,13 +1028,6 @@ export default function App({ token, onUnauthorized }) {
               ))}
             </ul>
           </div>
-          {mostExpensiveDay && (
-            <div className="stats-block">
-              <h3>Nejnákladnější den</h3>
-              <div className="stats-day-label">{mostExpensiveDay.label}</div>
-              <div className="stats-day-value">{formatCzk(mostExpensiveDay.dayTotal)} Kč</div>
-            </div>
-          )}
         </div>
       )}
       <footer className="app-footer">

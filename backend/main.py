@@ -87,6 +87,8 @@ def update_record(record_id: int, data: RecordUpdate, db: Session = Depends(get_
     record.note = data.note
     if data.date is not None:
         record.date = data.date
+    if data.payee is not None:
+        record.payee = data.payee
     db.commit()
     db.refresh(record)
     return RecordResponse.model_validate(record)
