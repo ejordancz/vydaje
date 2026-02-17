@@ -114,6 +114,15 @@ def list_rates(_: str = Depends(verify_token)):
 if FRONTEND_DIST.exists():
     app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
 
+    # Favicon se musí vracet jako soubor, ne HTML z SPA catch-all
+    @app.get("/favicon.png", include_in_schema=False)
+    def favicon_png():
+        favicon_path = FRONTEND_DIST / "favicon.png"
+        if not favicon_path.exists():
+            # kdyby favicon ještě nebyla v buildu, nechej 404 a nezaměňuj za index.html
+            raise HTTPException(status_code=404, detail="Favicon not found")
+        return FileResponse(favicon_path)
+
     @app.get("/")
     def index():
         return FileResponse(FRONTEND_DIST / "index.html")
