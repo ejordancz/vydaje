@@ -889,33 +889,37 @@ export default function App({ token, onUnauthorized }) {
               )}
             </div>
             <div className="detail-footer">
-              <div className="detail-footer-left">
-                <button type="button" className="btn btn-secondary" onClick={handleDetailEdit}>
-                  <EditIcon />
-                </button>
-                {!confirmDelete ? (
-                  <button type="button" className="btn btn-danger" onClick={handleDetailDelete}>
-                    <TrashIcon />
-                  </button>
-                ) : (
-                  <div className="detail-confirm-inline">
-                    <span className="detail-confirm-text">Opravdu smazat?</span>
+              {!confirmDelete ? (
+                <>
+                  <div className="detail-footer-left">
+                    <button type="button" className="btn btn-secondary" onClick={handleDetailEdit}>
+                      <EditIcon />
+                    </button>
                     <button type="button" className="btn btn-danger" onClick={handleDetailDelete}>
+                      <TrashIcon />
+                    </button>
+                  </div>
+                  <button type="button" className="btn btn-secondary" onClick={closeDetail}>
+                    Zavřít
+                  </button>
+                </>
+              ) : (
+                <div className="detail-confirm-row">
+                  <span className="detail-confirm-text">Opravdu smazat?</span>
+                  <div className="detail-confirm-btns">
+                    <button type="button" className="btn btn-danger detail-confirm-btn" onClick={handleDetailDelete}>
                       Ano
                     </button>
                     <button
                       type="button"
-                      className="btn btn-secondary"
+                      className="btn btn-secondary detail-confirm-btn"
                       onClick={() => setConfirmDelete(false)}
                     >
                       Ne
                     </button>
                   </div>
-                )}
-              </div>
-              <button type="button" className="btn btn-secondary" onClick={closeDetail}>
-                Zavřít
-              </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
