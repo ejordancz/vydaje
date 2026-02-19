@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 
 const WHO_OPTIONS = [
   { value: 'Mira', label: 'Mira', icon: PersonIcon },
@@ -269,6 +269,15 @@ export default function App({ token, onUnauthorized }) {
   const [editingPaymentId, setEditingPaymentId] = useState(null)
   const [detailRecord, setDetailRecord] = useState(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  const amountInputRef = useRef(null)
+
+  // Po otevření formuláře fokus na pole částky (pro zobrazení klávesnice na mobilu)
+  useEffect(() => {
+    if (showForm) {
+      const t = setTimeout(() => amountInputRef.current?.focus(), 100)
+      return () => clearTimeout(t)
+    }
+  }, [showForm])
 
   // Načtení předchozích voleb (kdo, měna, typ, kdo platí, měna splátky)
   useEffect(() => {
@@ -582,12 +591,10 @@ export default function App({ token, onUnauthorized }) {
   // Kladný balanceMira => Bohunka dluží Míře.
   const balanceMira = totalByWho.Mira - fairShare - paidByBohunkaToMira + paidByMiraToBohunka
   const debtAmount = balanceMira > 0 ? balanceMira : -balanceMira
-  const debtText =
-    Math.abs(balanceMira) < 0.01
-      ? 'Účet vyrovnán.'
-      : balanceMira > 0
-        ? `Bohunka dluží: ${formatCzk(debtAmount)} Kč`
-        : `Mira dluží: ${formatCzk(debtAmount)} Kč`
+  const debtSharePercent =
+    totalCzk > 0 && debtAmount > 0
+      ? Math.round((Number(debtAmount) / Number(totalCzk)) * 1000) / 10
+      : 0
 
   const dayKeys = [...new Set(records.map((r) => dateDayKey(r.date)))].sort().reverse()
   const recordsByDay = dayKeys.map((key) => {
@@ -608,114 +615,74 @@ export default function App({ token, onUnauthorized }) {
 
   return (
     <div className="app">
-      {!showForm && !showPaymentForm ? (
-        <div className="top-actions">
-          <button
-            type="button"
-            className="btn btn-primary btn-add-record"
-            onClick={openNewForm}
-          >
-            <PlusIcon />
-            Přidat záznam
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary btn-add-record"
-            onClick={openPaymentForm}
-          >
-            Splátka
-          </button>
-        </div>
-      ) : null}
+      {!showForm && !showPaymentForm && (
+        <button
+          type="button"
+          className="fab-add"
+          onClick={openNewForm}
+          aria-label="Přidat záznam"
+        >
+          <PlusIcon />
+        </button>
+      )}
 
       {showForm && (
         <div className="modal-backdrop" onClick={cancelForm} aria-hidden="true">
           <div className="modal-content form-card" onClick={(e) => e.stopPropagation()}>
             <form onSubmit={handleSubmit}>
               <div className="form-stack">
-              <div className="form-group form-group-datetime">
-                <label htmlFor="record-datetime">Datum a čas</label>
-                <input
-                  id="record-datetime"
-                  type="datetime-local"
-                  value={dateTime}
-                  onChange={(e) => setDateTime(e.target.value)}
-                  className="input-datetime"
-                />
-              </div>
               <div className="form-group">
-                <label>Kdo</label>
-                <div className="btn-group">
-                  {WHO_OPTIONS.map((opt) => {
-                    const Icon = opt.icon
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        className={`btn-option ${who === opt.value ? 'selected' : ''}`}
-                        onClick={() => setWho(opt.value)}
-                      >
-                        <Icon />
-                        {opt.label}
-                      </button>
-                    )
-                  })}
+                <div className="amount-label-row">
+                  <label htmlFor="record-amount">Částka platby</label>
+                  {!editingId && currency !== 'CZK' && currentRate != null && (
+                    <>
+                      <span className="czk-preview czk-preview-inline">Kurz: {formatNum(currentRate)} Kč / 1 {currency}</span>
+                      {amountNum > 0 && czkPreview && (
+                        <span className="czk-preview czk-preview-inline">≈ {czkPreview}</span>
+                      )}
+                    </>
+                  )}
+                  {editingId && (() => {
+                    const rec = records.find((r) => r.id === editingId)
+                    return rec && rec.currency !== 'CZK' && rec.rate != null
+                      ? <span className="czk-preview czk-preview-inline">Kurz: {formatNum(rec.rate)} Kč / 1 {rec.currency}</span>
+                      : null
+                  })()}
                 </div>
-              </div>
-              <div className="form-group">
-                <label>Částka platby</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="0,00"
-                  className="input-full input-amount"
-                />
-              </div>
-              <div className="form-group">
-                <label>Měna</label>
-                {editingId ? (
-                  <div className="form-readonly">
-                    <span className="currency-badge">{currency}</span>
+                <div className="amount-currency-row">
+                  <input
+                    ref={amountInputRef}
+                    id="record-amount"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="0,00"
+                    className="input-amount input-amount-short"
+                  />
+                  <button
+                    type="button"
+                    className="currency-square-btn"
+                    onClick={() => setCurrency(currency === 'CZK' ? 'EUR' : 'CZK')}
+                    disabled={!!editingId}
+                    title={currency === 'CZK' ? 'Kliknutím přepnete na EUR' : 'Kliknutím přepnete na CZK'}
+                  >
+                    {currency === 'CZK' ? 'Kč' : '€'}
+                  </button>
+                  <button
+                    type="button"
+                    className={`who-square-btn who-${who === 'Mira' ? 'mira' : 'bohunka'}`}
+                    onClick={() => setWho(who === 'Mira' ? 'Bohunka' : 'Mira')}
+                    disabled={!!editingId}
+                    title={who === 'Mira' ? 'Kliknutím přepnete na Bohunka' : 'Kliknutím přepnete na Mira'}
+                  >
                     {(() => {
-                      const rec = records.find((r) => r.id === editingId)
-                      return rec && rec.currency !== 'CZK' && rec.rate != null
-                        ? <span className="czk-preview">Kurz: {formatNum(rec.rate)} Kč / 1 {rec.currency}</span>
-                        : null
+                      const WhoIcon = WHO_OPTIONS.find((o) => o.value === who)?.icon || PersonIcon
+                      return <WhoIcon />
                     })()}
-                  </div>
-                ) : (
-                  <>
-                    <div className="btn-group">
-                      {CURRENCY_OPTIONS.map((opt) => {
-                        const Icon = opt.icon
-                        return (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            className={`btn-option ${currency === opt.value ? 'selected' : ''}`}
-                            onClick={() => setCurrency(opt.value)}
-                          >
-                            <Icon />
-                            {opt.label} {opt.symbol && `(${opt.symbol})`}
-                          </button>
-                        )
-                      })}
-                    </div>
-                    {currency !== 'CZK' && currentRate != null && (
-                      <>
-                        <span className="czk-preview">
-                          Kurz z Partners Banka: {formatNum(currentRate)} Kč / 1 {currency}
-                        </span>
-                        {currency === 'EUR' && amountNum > 0 && czkPreview && (
-                          <span className="czk-preview">≈ {czkPreview}</span>
-                        )}
-                      </>
-                    )}
-                  </>
-                )}
+                  </button>
+                </div>
               </div>
               <div className="form-group">
                 <label>Typ</label>
@@ -744,6 +711,16 @@ export default function App({ token, onUnauthorized }) {
                   rows={2}
                   className="input-full input-note"
                   placeholder="Krátký popis platby…"
+                />
+              </div>
+              <div className="form-group form-group-datetime">
+                <label htmlFor="record-datetime">Datum a čas</label>
+                <input
+                  id="record-datetime"
+                  type="datetime-local"
+                  value={dateTime}
+                  onChange={(e) => setDateTime(e.target.value)}
+                  className="input-datetime"
                 />
               </div>
               <div className="form-group">
@@ -869,20 +846,50 @@ export default function App({ token, onUnauthorized }) {
         </div>
       )}
 
-      {records.length > 0 && (
-        <div className="summary-bar">
-          <span><strong>Celkem utraceno:</strong> {formatCzk(totalCzk)} Kč</span>
-          <span><strong>Průměr za den:</strong> {formatCzk(avgPerDay)} Kč</span>
-          <span><strong>{debtText}</strong></span>
-        </div>
-      )}
-
       {detailRecord && (
         <div className="modal-backdrop" onClick={closeDetail} aria-hidden="true">
           <div className="modal-content form-card" onClick={(e) => e.stopPropagation()}>
-            <div className="detail-header">
-              <h2>Detail záznamu</h2>
-              <div className="detail-header-actions">
+            <div className="detail-body">
+              <div className="detail-icons-row">
+                <span className={`detail-who-icon who-${detailRecord.who === 'Mira' ? 'mira' : 'bohunka'}`} title={detailRecord.who}>
+                  {(() => {
+                    const WhoIcon = WHO_OPTIONS.find((o) => o.value === detailRecord.who)?.icon || PersonIcon
+                    return <WhoIcon />
+                  })()}
+                </span>
+                <span className="detail-type-icon" title={detailRecord.payee ? `Splátka → ${detailRecord.payee}` : detailRecord.type}>
+                  {React.createElement(getTypeIcon(detailRecord))}
+                </span>
+                <span className="detail-amount-inline">
+                  {formatCzk(detailRecord.amount_czk)} Kč
+                </span>
+              </div>
+              <div className="detail-datetime">
+                {detailRecord.date
+                  ? `${formatDayLabel(detailRecord.date)}, ${new Date(detailRecord.date).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}`
+                  : '–'}
+              </div>
+              {detailRecord.currency !== 'CZK' && (
+                <div className="detail-currency-muted">
+                  {formatByCurrency(detailRecord.amount, detailRecord.currency)} {detailRecord.currency}
+                  {detailRecord.rate != null && (
+                    <> · Kurz: {formatNum(detailRecord.rate)} Kč / 1 {detailRecord.currency}</>
+                  )}
+                </div>
+              )}
+              {detailRecord.payee && (
+                <div className="detail-grid-item">
+                  <strong>Komu:</strong> {detailRecord.payee}
+                </div>
+              )}
+              {detailRecord.note && (
+                <div className="detail-note">
+                  <span className="detail-note-text">{detailRecord.note}</span>
+                </div>
+              )}
+            </div>
+            <div className="detail-footer">
+              <div className="detail-footer-left">
                 <button type="button" className="btn btn-secondary" onClick={handleDetailEdit}>
                   <EditIcon />
                 </button>
@@ -906,45 +913,6 @@ export default function App({ token, onUnauthorized }) {
                   </div>
                 )}
               </div>
-            </div>
-            <div className="detail-grid">
-              <div>
-                <strong>Datum:</strong>{' '}
-                {detailRecord.date ? formatDayLabel(detailRecord.date) : '–'}
-              </div>
-              <div>
-                <strong>Čas:</strong>{' '}
-                {detailRecord.date ? new Date(detailRecord.date).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' }) : '–'}
-              </div>
-              <div>
-                <strong>Kdo:</strong> {detailRecord.who}
-              </div>
-              {detailRecord.payee && (
-                <div>
-                  <strong>Komu:</strong> {detailRecord.payee}
-                </div>
-              )}
-              <div>
-                <strong>Částka:</strong> {formatByCurrency(detailRecord.amount, detailRecord.currency)} {detailRecord.currency}
-              </div>
-              <div>
-                <strong>Kurz:</strong>{' '}
-                {detailRecord.rate != null ? `${formatNum(detailRecord.rate)} Kč / 1 ${detailRecord.currency}` : '–'}
-              </div>
-              <div>
-                <strong>V CZK:</strong> {formatCzk(detailRecord.amount_czk)} Kč
-              </div>
-              <div>
-                <strong>Typ:</strong>{' '}
-                {detailRecord.payee ? `Splátka → ${detailRecord.payee}` : detailRecord.type}
-              </div>
-              {detailRecord.note && (
-                <div style={{ gridColumn: '1 / -1' }}>
-                  <strong>Popisek:</strong> {detailRecord.note}
-                </div>
-              )}
-            </div>
-            <div className="form-actions" style={{ marginTop: '1rem', justifyContent: 'flex-end' }}>
               <button type="button" className="btn btn-secondary" onClick={closeDetail}>
                 Zavřít
               </button>
@@ -953,6 +921,10 @@ export default function App({ token, onUnauthorized }) {
         </div>
       )}
 
+      <h2 className="table-heading">
+        <span className="table-heading-gray">Výdaje</span>
+        <span className="table-heading-accent"> Malta 2026.02</span>
+      </h2>
       <div className="table-wrap">
         <table>
           <thead>
@@ -1006,7 +978,7 @@ export default function App({ token, onUnauthorized }) {
                           )
                         })()}
                       </td>
-                      <td className="num">{formatCzk(rec.amount_czk)}</td>
+                      <td className="num">{formatCzk(rec.amount_czk)} Kč</td>
                     </tr>
                   ))}
                 </React.Fragment>
@@ -1018,6 +990,19 @@ export default function App({ token, onUnauthorized }) {
       {totalCzk > 0 && (
         <div className="stats-panel">
           <div className="stats-block">
+            <h3>Souhrn</h3>
+            <ul>
+              <li>
+                <span>Celkem utraceno</span>
+                <span className="stats-celkem-value">{formatCzk(totalCzk)} Kč</span>
+              </li>
+              <li>
+                <span>Průměr za den</span>
+                <span>{formatCzk(avgPerDay)} Kč</span>
+              </li>
+            </ul>
+          </div>
+          <div className="stats-block">
             <h3>Podle typu</h3>
             <ul>
               {Object.entries(typeTotals).map(([t, v]) => (
@@ -1028,9 +1013,39 @@ export default function App({ token, onUnauthorized }) {
               ))}
             </ul>
           </div>
+          <div className="stats-block">
+            <h3>Kdo komu dluží</h3>
+            <ul>
+              {Math.abs(balanceMira) < 0.01 ? (
+                <li>
+                  <span>Stav</span>
+                  <span className="stats-debt-balanced">Účet vyrovnán.</span>
+                </li>
+              ) : (
+                <>
+                  <li>
+                    <span>{balanceMira > 0 ? 'Bohunka dluží Mira' : 'Mira dluží Bohunka'}</span>
+                    <button type="button" className="stats-debt-link" onClick={openPaymentForm}>
+                      {formatCzk(debtAmount)} Kč
+                    </button>
+                  </li>
+                  {debtSharePercent > 0 && (
+                    <li>
+                      <span>Sleva</span>
+                      <span className="stats-debt-sleva-value">{debtSharePercent}%</span>
+                    </li>
+                  )}
+                </>
+              )}
+            </ul>
+          </div>
         </div>
       )}
       <footer className="app-footer">
+        <button type="button" className="footer-link" onClick={() => window.location.reload()}>
+          Reload
+        </button>
+        <span className="footer-sep"> · </span>
         <button type="button" className="footer-logout" onClick={onUnauthorized}>
           Odhlásit
         </button>

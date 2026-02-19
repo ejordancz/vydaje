@@ -14,6 +14,10 @@
   box-sizing: border-box;
 }
 
+html {
+  touch-action: manipulation;
+}
+
 body {
   margin: 0;
   font-family: 'DM Sans', system-ui, sans-serif;
@@ -21,6 +25,7 @@ body {
   color: var(--text);
   line-height: 1.5;
   min-height: 100vh;
+  touch-action: manipulation;
 }
 
 #root {
@@ -101,6 +106,102 @@ body {
   outline: none;
   border-color: var(--accent);
   background: var(--bg);
+}
+
+.amount-label-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.amount-label-row .czk-preview-inline {
+  margin: 0;
+}
+
+.amount-currency-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.input-amount-short {
+  flex: 1;
+  min-width: 0;
+}
+
+.currency-square-btn {
+  width: 2.75rem;
+  min-width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.currency-square-btn:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: rgba(201, 162, 39, 0.15);
+  color: var(--accent);
+}
+
+.currency-square-btn:disabled {
+  opacity: 0.8;
+  cursor: default;
+}
+
+.who-square-btn {
+  width: 2.75rem;
+  min-width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.who-square-btn svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.who-square-btn.who-mira:hover:not(:disabled) {
+  border-color: #14b8a6;
+  background: rgba(20, 184, 166, 0.15);
+  color: #14b8a6;
+}
+
+.who-square-btn.who-bohunka:hover:not(:disabled) {
+  border-color: #e879f9;
+  background: rgba(232, 121, 249, 0.15);
+  color: #e879f9;
+}
+
+.who-square-btn:disabled {
+  opacity: 0.8;
+  cursor: default;
+}
+
+.amount-currency-previews {
+  display: block;
+  margin-top: 0.25rem;
 }
 
 .input-datetime {
@@ -241,6 +342,101 @@ body {
   gap: 0.4rem;
 }
 
+.detail-body {
+  font-size: 0.9rem;
+}
+
+.detail-icons-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.detail-amount-inline {
+  margin-left: auto;
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.detail-who-icon,
+.detail-type-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.detail-who-icon svg,
+.detail-type-icon svg {
+  width: 1.2rem;
+  height: 1.2rem;
+}
+
+.detail-datetime {
+  margin-bottom: 0.75rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.detail-amount {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 0.25rem;
+}
+
+.detail-currency-muted {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-bottom: 0.75rem;
+}
+
+.detail-grid-item,
+.detail-note {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.detail-note-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.detail-note-text {
+  color: var(--text);
+}
+
+.detail-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.detail-footer-left {
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: center;
+}
+
+.detail-footer-left .btn svg {
+  width: 1rem;
+  height: 1rem;
+}
+
 .stats-panel {
   margin-top: 1.25rem;
   display: grid;
@@ -275,6 +471,53 @@ body {
   justify-content: space-between;
   gap: 0.75rem;
   padding: 0.15rem 0;
+}
+
+.stats-celkem-value {
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 1.1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-debt {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+
+.stats-debt-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+
+.stats-debt-sleva-value {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.stats-debt-balanced {
+  color: var(--muted);
+}
+
+.stats-debt-link {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.stats-debt-link:hover {
+  color: var(--accent-hover);
 }
 
 .stats-day-label {
@@ -443,6 +686,20 @@ body {
 .btn-secondary:hover {
   border-color: var(--muted);
   color: var(--text);
+}
+
+.table-heading {
+  margin: 0 0 0.375rem 0;
+  font-size: 2rem;
+  font-weight: 100;
+}
+
+.table-heading-gray {
+  color: #4a4a4a;
+}
+
+.table-heading-accent {
+  color: var(--accent);
 }
 
 .table-wrap {
@@ -631,6 +888,7 @@ table tbody td:nth-child(3) {
   text-align: center;
 }
 
+.footer-link,
 .footer-logout {
   background: none;
   border: none;
@@ -643,6 +901,56 @@ table tbody td:nth-child(3) {
   text-underline-offset: 2px;
 }
 
+.footer-sep {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin: 0 0.2rem;
+}
+
+.footer-link:hover,
 .footer-logout:hover {
   color: var(--text);
+}
+
+/* Kruhové tlačítko Přidat záznam – připnuté vpravo dole */
+.fab-add {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: var(--bg);
+  cursor: pointer;
+  z-index: 900;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  transition: background 0.2s, transform 0.15s;
+}
+
+.fab-add:hover {
+  background: var(--accent-hover);
+  transform: scale(1.05);
+}
+
+.fab-add:active {
+  transform: scale(0.98);
+}
+
+.fab-add svg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+/* Zabránění zoomu při zobrazení klávesnice na mobilu (iOS zoomuje při fokusu na input < 16px) */
+@media (max-width: 768px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
 }
